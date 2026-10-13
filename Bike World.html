@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bike World</title>
+<style>
+:root{--bg:#f3f5fb;--card:#fff;--tx:#161a26;--mut:#6b7590;--ac:#ff7a1a;--bd:#dde2ee;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10131c;--card:#1b2030;--tx:#f2f5ff;--mut:#8f9ab8;--bd:#2b3248}}
+:root[data-theme="dark"]{--bg:#10131c;--card:#1b2030;--tx:#f2f5ff;--mut:#8f9ab8;--bd:#2b3248}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;padding:10px}
+.wrap{max-width:860px;margin:0 auto}
+h1{font-size:22px;margin:4px 0 8px;letter-spacing:.5px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.chip{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:6px 10px;font-size:14px;font-weight:600}
+.xpb{flex:1;min-width:140px;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--mut)}
+.xpb i{display:block;height:6px;border-radius:4px;background:var(--bd);margin-top:4px;overflow:hidden}.xpb b{display:block;height:100%;background:var(--ac)}
+.tabs{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto}
+button{font:inherit;cursor:pointer}
+.tab{flex:1;padding:9px;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:10px;font-weight:600}
+.tab.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+canvas{width:100%;display:block;border-radius:14px;border:1px solid var(--bd);touch-action:none;background:#222}
+.hint{font-size:13px;color:var(--mut);margin:8px 2px}
+.grid{display:grid;gap:8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.card small{color:var(--mut);display:block;margin-top:2px}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:9px;padding:8px 14px;font-weight:700;white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:not-allowed}.btn.alt{background:var(--bd);color:var(--tx)}
+input{font:inherit;padding:9px;border-radius:9px;border:1px solid var(--bd);background:var(--card);color:var(--tx);width:100%}
+.sw{width:14px;height:14px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:-1px}
+</style></head><body><div class="wrap">
+<h1>🚲 Bike World</h1>
+<div class="bar" id="bar"></div>
+<div class="tabs" id="tabs"></div>
+<div id="gb"></div>
+<div id="view"></div>
+</div>
+<script>
+const TRICKS={'Bunny Hop':[10,'s',0],'Tailwhip':[25,'s',1],'Barspin':[40,'s',1],'No-Hander':[60,'s',1],'Backflip':[100,'f',1],'Superman':[150,'s',1],'Double Backflip':[250,'f',2]};
+const BIKES=[
+{id:'owner',name:'Owner eBike',price:0,get mult(){return 1+.1*((S.ol||1)-1)},tricks:['Bunny Hop'],col:'#9aa4b8',r:14},
+{id:'city',name:'City eBike',price:500,mult:1.5,tricks:['Tailwhip'],col:'#2fd39a',r:14},
+{id:'trail',name:'Trail eBike',price:2500,mult:2,tricks:['Tailwhip','Barspin','No-Hander'],col:'#4aa8ff',r:14},
+{id:'turbo',name:'Turbo eBike',price:9000,mult:3,tricks:['Barspin','No-Hander','Backflip'],col:'#ff6b4a',r:14},
+{id:'hyper',name:'Hyper eBike',price:30000,mult:5,tricks:['Backflip','Superman','Double Backflip'],col:'#c86bff',r:14}];
+const WORLDS=[
+{id:'wheelie',name:'Wheelie Land',price:0,type:'wheelie',sky:['#ffb36b','#ff6fa5'],gr:'#6b3b5e',cm:1,d:'Hold to wheelie. Stay in the green zone!'},
+{id:'streets',name:'Sunny Streets',price:1000,type:'ride',sky:['#6ec6ff','#d6f1ff'],gr:'#444b59',cm:2,d:'Jump cones, do tricks.'},
+{id:'desert',name:'Dusty Dunes',price:5000,type:'ride',sky:['#ffd27a','#ffefc4'],gr:'#b8844a',cm:4,d:'Hot, fast, rewarding.'},
+{id:'neon',name:'Neon City',price:15000,type:'ride',sky:['#1a0b3b','#5b1fa8'],gr:'#1c1030',cm:8,d:'Glow-up rides.'},
+{id:'moon',name:'Moon Base',price:50000,type:'ride',sky:['#05060f','#2a3050'],gr:'#8a8fa0',cm:16,d:'Low gravity, huge payouts.'}];
+let S={name:'Rider',coins:0,xp:0,bikes:['owner'],bike:'owner',worlds:['wheelie'],world:'wheelie'};
+try{const s=localStorage.getItem('bikeworld');if(s)S={...S,...JSON.parse(s)}}catch(e){}
+S.bikes=S.bikes.map(x=>x==='scooter'?'owner':x);if(S.bike==='scooter')S.bike='owner';S.ol=S.ol||1;
+const save=()=>{try{localStorage.setItem('bikeworld',JSON.stringify(S))}catch(e){}};
+const bk=()=>BIKES.find(b=>b.id===S.bike),wd=()=>WORLDS.find(w=>w.id===S.world);
+const lvl=()=>1+Math.floor(Math.sqrt(S.xp/100));
+const INF=true;let tab='play';
+const $=id=>document.getElementById(id);
+function bar(){const l=lvl(),a=(l-1)**2*100,b=l**2*100;
+$('bar').innerHTML=`<div class="chip">👤 ${esc(S.name)}</div><div class="chip">🪙 ${INF?'∞':Math.floor(S.coins)}</div><div class="chip">⭐ Lv ${l}</div><div class="xpb">${Math.floor(S.xp)} XP · ${bk().id==='owner'?'Owner Lv '+(S.ol||1)+' · ':''}${+bk().mult.toFixed(1)}x XP bike<i><b style="width:${(S.xp-a)/(b-a)*100}%"></b></i></div>`;
+$('tabs').innerHTML=[['play','Play'],['garage','Garage'],['worlds','Worlds'],['me','Profile']].map(t=>`<button class="tab ${tab===t[0]?'on':''}" onclick="go('${t[0]}')">${t[1]}</button>`).join('')}
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function go(t){tab=t;bar();const v=$('view');
+if(t==='play'){v.innerHTML=`<canvas id="cv" width="800" height="340"></canvas><div class="hint" id="hint"></div>`;cv=$('cv');cx=cv.getContext('2d');bind();reset();hint()}
+if(t==='garage')v.innerHTML='<div class="grid">'+BIKES.map(b=>{const o=S.bikes.includes(b.id),e=S.bike===b.id;return `<div class="card"><div><b><span class="sw" style="background:${b.col}"></span>${b.name}${b.id==='owner'?' · Lv '+(S.ol||1):''}</b><small>${+b.mult.toFixed(1)}x XP · Tricks: ${b.tricks.join(', ')}</small></div>${o?`<button class="btn ${e?'alt':''}" ${e?'disabled':''} onclick="eq('${b.id}')">${e?'Equipped':'Equip'}</button>`:`<button class="btn" ${!INF&&S.coins<b.price?'disabled':''} onclick="buyB('${b.id}')">🪙 ${b.price}</button>`}</div>`}).join('')+'</div>';
+if(t==='worlds')v.innerHTML='<div class="grid">'+WORLDS.map(w=>{const o=S.worlds.includes(w.id);return `<div class="card"><div><b>${w.name}</b><small>${w.d} · ${w.cm}x coins</small></div>${o?`<button class="btn" onclick="trav('${w.id}')">Ride here</button>`:`<button class="btn" ${!INF&&S.coins<w.price?'disabled':''} onclick="buyW('${w.id}')">🪙 ${w.price}</button>`}</div>`}).join('')+'</div>';
+if(t==='me')v.innerHTML=`<div class="card" style="display:block"><b>Your name</b><div style="display:flex;gap:8px;margin-top:8px"><input id="nm" maxlength="16" value="${esc(S.name)}"><button class="btn" onclick="rename()">Save</button></div><small style="color:var(--mut);margin-top:10px;display:block">Level ${lvl()} · ${Math.floor(S.xp)} XP · ${S.bikes.length}/${BIKES.length} bikes · ${S.worlds.length}/${WORLDS.length} worlds</small><b style="display:block;margin-top:14px">🔗 Game link</b><div style="display:flex;gap:8px;margin-top:8px"><input id="gl" readonly value="https://claude.ai/artifact/SQqtAZRa15GZnBxPUbZUwC"><button class="btn" onclick="copyLink()">Copy link</button></div><div id="gc" class="hint"></div><b style="display:block;margin-top:14px">🎁 Gift the Owner eBike</b><div style="display:flex;gap:8px;margin-top:8px"><input id="gf" maxlength="16" placeholder="Enter a name"><button class="btn" onclick="gift()">Gift</button></div><div id="gm" class="hint"></div><button class="btn alt" style="margin-top:12px" onclick="if(confirm('Reset all progress?')){S={name:S.name,coins:0,xp:0,bikes:['owner'],bike:'owner',worlds:['wheelie'],world:'wheelie'};save();go('me')}">Reset progress</button></div>`}
+function rename(){const n=$('nm').value.trim().slice(0,16);if(n){S.name=n;save();bar();watch()}}
+let DB=null,unsub=null,pending=null;
+const gkey=n=>n.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,24)||'x';
+async function initDb(){try{DB=window.claude&&await claude.use('db')}catch(e){DB=null}watch()}
+function watch(){if(!DB)return;try{if(unsub)unsub();unsub=DB.doc('gifts/'+gkey(S.name)).onSnapshot(s=>{let d=null;try{d=s.data()}catch(e){}pending=d&&d.to?d:null;showGift()},()=>{})}catch(e){}}
+function showGift(){const g=$('gb');if(!g)return;g.innerHTML=pending?`<div class="card" style="margin-bottom:8px"><div><b>🎁 ${esc(String(pending.from||'Someone'))} gifted you an Owner eBike!</b><small>It comes with level ${Math.floor(pending.lv||1)}</small></div><button class="btn" onclick="claim()">Claim</button></div>`:''}
+async function claim(){if(!pending||!DB)return;const lv=Math.floor(pending.lv||1);try{await DB.doc('gifts/'+gkey(S.name)).delete();S.ol=Math.max(S.ol||1,lv);save();pending=null;showGift();bar()}catch(e){}}
+async function gift(){const n=$('gf').value.trim().slice(0,16),m=$('gm');if(!n){m.textContent='Enter a name first.';return}
+if(!DB){m.textContent='Gifting needs you to be signed in to claude.ai with this page shared to you.';return}
+try{await DB.doc('gifts/'+gkey(n)).set({to:n,from:S.name,lv:S.ol||1,at:Date.now()});m.textContent='✅ Successful! Gifted the Owner eBike (Lv '+(S.ol||1)+') to '+n+'.';$('gf').value=''}
+catch(e){m.textContent=e&&e.code==='invalid_argument'?'You need Contributor access to send gifts.':'Could not send the gift. Try again.'}}
+async function copyLink(){const i=$('gl'),m=$('gc');let ok=false;try{await navigator.clipboard.writeText(i.value);ok=true}catch(e){try{i.select();ok=document.execCommand('copy')}catch(e2){}}m.textContent=ok?'✅ Link copied!':'Copy the selected link with Ctrl+C (or touch and hold, then Copy).';if(!ok)i.select()}
+function eq(i){S.bike=i;save();go('garage')}
+function buyB(i){const b=BIKES.find(x=>x.id===i);if(INF||S.coins>=b.price){if(!INF)S.coins-=b.price;S.bikes.push(i);S.bike=i;save();go('garage')}}
+function buyW(i){const w=WORLDS.find(x=>x.id===i);if(INF||S.coins>=w.price){if(!INF)S.coins-=w.price;S.worlds.push(i);S.world=i;save();go('worlds')}}
+function trav(i){S.world=i;save();go('play')}
+function hint(){const h=$('hint');if(h)h.textContent=wd().type==='wheelie'?'Wheelie Land: HOLD the RIGHT ARROW (or touch/click) to lift the front wheel. Keep it in the green zone for XP + coins. Too high = you flip!':'Tap Space / click to jump. Tap again in the air to do a trick. Dodge cones, grab coins!'}
+/* ---------- game ---------- */
+let cv,cx,g,held=false,last=0,bound=false;
+function reset(){g={t:0,sp:260,off:0,y:0,vy:0,air:false,trick:null,tt:0,stun:0,a:0,av:0,fall:0,obs:[],coins:[],pop:[],nx:600,dist:0,score:0,acc:0}}
+function bind(){if(bound)return;bound=true;
+const hk=e=>wd().type==='wheelie'?e.code==='ArrowRight':(e.code==='Space'||e.code==='ArrowUp');
+addEventListener('keydown',e=>{if(hk(e)){e.preventDefault();if(!held)press();held=true}});
+addEventListener('keyup',e=>{if(hk(e))held=false});
+document.addEventListener('pointerdown',e=>{if(e.target.id==='cv'){held=true;press()}});
+addEventListener('pointerup',()=>held=false)}
+function press(){if(tab!=='play'||!g||g.stun>0||wd().type==='wheelie')return;
+if(!g.air){g.vy=wd().id==='moon'?620:540;g.air=true;g.trick=null;g.did=false}
+else if(!g.did){const b=bk(),ts=b.tricks,n=ts[Math.floor(Math.random()*ts.length)];g.trick=n;g.tt=0;g.did=true}}
+function pop(t,x,y,c){g.pop.push({t,x,y,c:c||'#fff',l:1.2})}
+function gain(xp,co,tx){const m=bk().mult;S.xp+=xp*m;S.coins+=co*wd().cm;g.acc+=.016;if(tx)pop(tx,150,g.py-70,'#ffe14a');bar()}
+function update(dt){if(tab!=='play')return;const w=wd();g.t+=dt;g.groundY=270;
+if(w.type==='wheelie'){
+const dir=held&&!g.fall?1:-1;g.av+=(dir*(g.fall?0:2.2)-(held?0:1.6)*(g.fall?0:1))*dt*(held?1:1);
+g.av=Math.max(-2,Math.min(2.2,g.av*(1-1.3*dt)));
+if(g.fall>0){g.fall-=dt;g.a=Math.max(0,g.a-3*dt);g.av=0;if(g.fall<=0)g.a=0}
+else{g.a+=g.av*dt;if(g.a<0){g.a=0;g.av=0}
+if(g.a>1.15){g.fall=1.1;pop('Flipped over!',300,150,'#ff5a5a')}
+else if(g.a>.35&&g.a<.85){g.zt=(g.zt||0)+dt;S.xp+=7*bk().mult*dt;S.coins+=4*w.cm*dt;if(g.zt>1){g.zt=0;pop('+'+Math.round(7*bk().mult)+' XP',170,150,'#7dffb0')}}}
+g.off+=(g.a>.35&&g.fall<=0?240:120)*dt;g.py=g.groundY;
+if(Math.random()<dt*2)g.acc+=0;bar2(dt);return}
+g.py=g.groundY-g.y;
+g.sp=Math.min(520,260+g.t*3);g.off+=g.sp*dt;g.dist+=g.sp*dt;
+if(g.stun>0){g.stun-=dt}
+else{S.xp+=g.sp*dt/60*bk().mult*.2;
+if(g.air){const gr=w.id==='moon'?900:1500;g.vy-=gr*dt;g.y+=g.vy*dt;
+if(g.trick){g.tt+=dt}
+if(g.y<=0){g.y=0;g.air=false;if(g.trick||g.did===false||true){const n=g.trick||'Bunny Hop',v=TRICKS[n][0],ok=!g.trick||g.tt>.38||TRICKS[n][2]===0;
+if(ok||true){gain(v,v/6,n+'! +'+Math.round(v*bk().mult)+' XP')}}g.trick=null}}}
+g.nx-=g.sp*dt;if(g.nx<=0){g.obs.push({x:900,w:26,h:30+Math.random()*16});if(Math.random()<.7)g.coins.push({x:900+60+Math.random()*120,y:50+Math.random()*90});g.nx=300+Math.random()*320+(g.sp>400?0:80)}
+g.obs.forEach(o=>o.x-=g.sp*dt);g.coins.forEach(c=>c.x-=g.sp*dt);
+g.obs=g.obs.filter(o=>o.x>-60);g.coins=g.coins.filter(c=>c.x>-30);
+if(g.stun<=0){for(const o of g.obs){if(o.x<150+16&&o.x+o.w>150-20&&g.y<o.h-4){g.stun=1;g.t*=.4;g.air=false;g.y=0;g.trick=null;g.obs=g.obs.filter(q=>q.x>o.x+200);pop('Crash!',150,g.py-60,'#ff5a5a');break}}
+g.coins=g.coins.filter(c=>{if(Math.abs(c.x-150)<28&&Math.abs((g.groundY-c.y)-(g.py-20))<40){S.coins+=3*w.cm;pop('+'+3*w.cm,150,g.py-50,'#ffe14a');bar();return false}return true})}
+bar2(dt)}
+function bar2(dt){g.acc+=dt;if(g.acc>1){g.acc=0;save();bar()}}
+function bike(x,y,rot,flip,sx,b,col){const r=b.r;cx.save();cx.translate(x,y-r);cx.rotate(-rot);cx.translate(23,-14);cx.rotate(-flip);cx.scale(sx,1);cx.translate(-23,14);
+cx.lineCap='round';cx.lineJoin='round';cx.strokeStyle='#111';cx.lineWidth=3;
+cx.beginPath();cx.arc(0,0,r,0,7);cx.moveTo(46+r,0);cx.arc(46,0,r,0,7);cx.stroke();
+cx.strokeStyle=col;cx.lineWidth=5;cx.beginPath();
+if(b.id==='scooter'){cx.moveTo(0,0);cx.lineTo(8,-4);cx.lineTo(36,-4);cx.lineTo(46,0);cx.moveTo(40,-4);cx.lineTo(36,-46);cx.lineTo(28,-46);cx.stroke()}
+else{cx.moveTo(0,0);cx.lineTo(20,-24);cx.lineTo(44,-26);cx.lineTo(46,0);cx.moveTo(20,-24);cx.lineTo(24,-4);cx.lineTo(0,0);cx.stroke();cx.fillStyle='#222';cx.fillRect(18,-20,16,7);cx.fillStyle='#ffe14a';cx.fillRect(21,-18,10,3)}
+cx.strokeStyle='#2b2f45';cx.lineWidth=5;cx.beginPath();
+if(b.id==='scooter'){cx.moveTo(14,-6);cx.lineTo(18,-30);cx.lineTo(24,-56);cx.lineTo(30,-46)}
+else{cx.moveTo(24,-6);cx.lineTo(18,-22);cx.lineTo(20,-44);cx.lineTo(38,-30);cx.lineTo(44,-27)}
+cx.stroke();cx.fillStyle='#ffcfa0';cx.beginPath();cx.arc(b.id==='scooter'?26:22,-62,8,0,7);cx.fill();cx.fillStyle=col;cx.beginPath();cx.arc(b.id==='scooter'?26:22,-65,8,Math.PI,0);cx.fill();cx.restore()}
+function draw(){const w=wd(),b=bk(),W=800,H=340,gy=g.groundY||270;
+const gr=cx.createLinearGradient(0,0,0,gy);gr.addColorStop(0,w.sky[0]);gr.addColorStop(1,w.sky[1]);cx.fillStyle=gr;cx.fillRect(0,0,W,H);
+cx.fillStyle='rgba(255,255,255,.18)';for(let i=0;i<6;i++){const x=((i*190-g.off*.2)%1140+1140)%1140-170;cx.beginPath();cx.moveTo(x,gy);cx.lineTo(x+90,gy-90-(i%3)*30);cx.lineTo(x+180,gy);cx.fill()}
+if(w.id==='moon'||w.id==='neon'){cx.fillStyle='#fff';for(let i=0;i<30;i++)cx.fillRect((i*97+13)%W,(i*53)%140,2,2)}
+cx.fillStyle=w.gr;cx.fillRect(0,gy,W,H-gy);cx.fillStyle='rgba(255,255,255,.35)';for(let i=0;i<12;i++){const x=((i*90-g.off)%1080+1080)%1080-60;cx.fillRect(x,gy+30,44,4)}
+if(w.type==='ride'){g.obs.forEach(o=>{cx.fillStyle='#ff7a1a';cx.beginPath();cx.moveTo(o.x,gy);cx.lineTo(o.x+o.w/2,gy-o.h);cx.lineTo(o.x+o.w,gy);cx.fill();cx.fillStyle='#fff';cx.fillRect(o.x+o.w*.3,gy-o.h*.5,o.w*.4,5)});
+g.coins.forEach(c=>{cx.fillStyle='#ffd23a';cx.beginPath();cx.arc(c.x,gy-c.y,9,0,7);cx.fill();cx.strokeStyle='#b88a00';cx.lineWidth=2;cx.stroke()})}
+let rot=0,flip=0,sx=1,py=g.py||gy;
+if(w.type==='wheelie'){rot=g.a;if(g.fall>0)rot=g.a+ (1.1-g.fall)*3}
+else{if(g.trick){const T=TRICKS[g.trick],p=Math.min(1,g.tt/.55);if(T[1]==='f')flip=p*Math.PI*2*T[2];else sx=Math.cos(p*Math.PI*2)||.05}
+if(g.stun>0)rot=-.4*Math.sin(g.t*30)}
+bike(130,py,rot,flip,sx,b,b.col);
+if(w.type==='wheelie'){cx.fillStyle='rgba(0,0,0,.35)';cx.fillRect(30,24,200,14);cx.fillStyle='#2fd39a';cx.fillRect(30+200*.35/1.3,24,200*.5/1.3,14);cx.fillStyle='#fff';cx.fillRect(28+200*Math.min(g.a,1.3)/1.3,20,4,22);cx.font='12px system-ui';cx.fillText('Balance',30,54)}
+cx.fillStyle='rgba(0,0,0,.35)';cx.fillRect(W-210,12,198,28);cx.fillStyle='#fff';cx.font='bold 14px system-ui';cx.textAlign='right';cx.fillText(S.name+' · '+w.name,W-20,31);cx.textAlign='left';
+g.pop.forEach(p=>{cx.globalAlpha=Math.min(1,p.l);cx.fillStyle=p.c;cx.font='bold 18px system-ui';cx.strokeStyle='rgba(0,0,0,.6)';cx.lineWidth=3;cx.strokeText(p.t,p.x,p.y);cx.fillText(p.t,p.x,p.y);cx.globalAlpha=1})}
+function loop(ts){const dt=Math.min(.04,(ts-last)/1000||.016);last=ts;
+if(tab==='play'&&g&&cx&&cv&&cv.isConnected){update(dt);g.pop.forEach(p=>{p.l-=dt;p.y-=30*dt});g.pop=g.pop.filter(p=>p.l>0);draw()}
+requestAnimationFrame(loop)}
+initDb();
+setInterval(()=>{if(S.bike==='owner'){S.ol=(S.ol||1)+1;S.xp+=1e7;save();bar()}},1000);
+go('play');requestAnimationFrame(loop);
+</script></body></html>
